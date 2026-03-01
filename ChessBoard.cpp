@@ -183,6 +183,7 @@ vector<int> ChessBoard::generateMoves(int pos) {
             }
         }
     }
+    
     return validMoves;
 }
 
@@ -201,6 +202,7 @@ vector<int> ChessBoard::knightMovement(int pos) {
             moves.push_back(nextPos);
         }
     }
+    
     return moves;
 }
 
@@ -218,6 +220,35 @@ vector<int> ChessBoard::kingMovement(int pos) {
         if (isCorrectDistance(pos, nextPos, 1) && checkValidMove(color, nextPos)) {
             moves.push_back(nextPos);
         }
+    }
+
+    bool leftCastle = color == 'w' ? get<0>(whiteCastle) : get<0>(blackCastle);
+    bool rightCastle = color == 'w' ? get<1>(whiteCastle) : get<1>(blackCastle);
+
+    if (leftCastle) {
+        bool canCastle = true;
+        for (int i = 1; i < 4; i++) {
+            int skipOver = pos - i;
+            int skipPiece = getPiece(skipOver);
+            if (skipPiece != EMPTY) { canCastle = false; break; }
+            tuple<int, int, int, int> move = makeMoveObj(pos, skipOver);
+            if (!checkValidMove(move)) { canCastle = false; break; }
+        }
+
+        if (canCastle) moves.push_back(pos - 2);
+    }
+
+    if (rightCastle) {
+        bool canCastle = true;
+        for (int i = 1; i < 3; i++) {
+            int skipOver = pos + i;
+            int skipPiece = getPiece(skipOver);
+            if (skipPiece != EMPTY) { canCastle = false; break; }
+            tuple<int, int, int, int> move = makeMoveObj(pos, skipOver);
+            if (!checkValidMove(move)) { canCastle = false; break; }
+        }
+
+        if (canCastle) moves.push_back(pos + 2);
     }
 
     return moves;
@@ -256,7 +287,8 @@ vector<int> ChessBoard::pawnMovement(int pos) {
     checkForErrors(piece, errorMessage);
 
     vector<int> moves;
-    bool isWhite = getPieceColor(piece) == 'w';
+    char color = getPieceColor(piece);
+    bool isWhite = color == 'w';
     int dir = isWhite ? -8 : 8;
     int row = floor(pos / 8);
 
@@ -269,13 +301,6 @@ vector<int> ChessBoard::pawnMovement(int pos) {
     bool isOneEmpty = isEmpty(onePiece);
     bool isTwoEmpty = isEmpty(twoPiece);
 
-    if (isOneEmpty) {
-        moves.push_back(one);
-    }
-    if (row == startRank && isOneEmpty && isTwoEmpty) {
-        moves.push_back(two);
-    }
-
     int leftCap = pos + dir - 1;
     int rightCap = pos + dir + 1;
     bool onLeftFile = pos % 8 == 0;
@@ -284,14 +309,36 @@ vector<int> ChessBoard::pawnMovement(int pos) {
     int leftCapPiece = getPiece(leftCap);
     int rightCapPiece = getPiece(rightCap);
 
-    if (!onLeftFile && !isError(leftCapPiece) && leftCapPiece != EMPTY && getPieceColor(leftCapPiece) != getPieceColor(piece)) {
+    if (isOneEmpty) {
+        moves.push_back(one);
+    }
+    if (row == startRank && isOneEmpty && isTwoEmpty) {
+        moves.push_back(two);
+    }
+    if (!onLeftFile && !isError(leftCapPiece) && leftCapPiece != EMPTY && getPieceColor(leftCapPiece) != color) {
         moves.push_back(leftCap);
     }
-    if (!onRightFile && !isError(rightCapPiece) && rightCapPiece != EMPTY && getPieceColor(rightCapPiece) != getPieceColor(piece)) {
+    if (!onRightFile && !isError(rightCapPiece) && rightCapPiece != EMPTY && getPieceColor(rightCapPiece) != color) {
         moves.push_back(rightCap);
     }
 
+    auto prev = lastPositions.find(pos);
+    if (prev != lastPositions.end()) {
+        int prevPosition = prev->second;
+        int prevRow = floor(prevPosition / 8);
+        if (prevRow == startRank) {
+            int rightPiece = getPiece(pos + 1);
+            int leftPiece = getPiece(pos - 1);
+            if (rightPiece != -1 && rightPiece != EMPTY && rightCapPiece == EMPTY && getPieceColor(rightPiece) != color) moves.push_back(rightCap);
+            if (leftPiece != -1 && leftPiece != EMPTY && leftCapPiece == EMPTY && getPieceColor(leftPiece) != color) moves.push_back(leftCap);
+        }
+    }
+
     return moves;
+}
+
+map<int, int> ChessBoard::getLastPositions() {
+    return lastPositions;
 }
 
 vector<int> ChessBoard::rookMovement(int pos) {
@@ -403,6 +450,10 @@ T getRandomMove(vector<T> values) {
     return values[dis(gen)];
 }
 
+bool ChessBoard::getCurrentTurn() {
+    return currentTurn;
+}
+
 tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
     int fromPiece = getPiece(pos);
     vector<int> moves;
@@ -425,7 +476,7 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
         string reason = isInCheck(pieceColor) ? "Currently in check - Invalid piece." : "There are no destinations.";
         cout << reason << endl;
         return make_tuple(false, moves);
-    }    
+    }
 
     int dashesWidth = 8 * 5 + 1;
     int spacesWidth = 8 * 4 + 1;
@@ -575,24 +626,69 @@ vector<tuple<int, int, int, int>> ChessBoard::getColorMoves(char color) {
     return moves;
 }
 
-void ChessBoard::makeMove(int from, int to, bool printMove) {
-    int piece = positions[from];
-    int toPiece = positions[to];
-    char nextTurn = currentTurn == 'w' ? 'b' : 'w';
-    
-    if (printMove) {
-        string capturing = positions[to] == EMPTY ? "." : createMessage(", capturing {}.", translatePiece(positions[to]));
-        string message = createMessage("Moving {} from {} to {}{}", translatePiece(piece), from, to, capturing);
-        cout << message << endl << endl;
-    }
+void ChessBoard::checkEnPassant(tuple<int, int, int, int> move) {
+    int fromPiece = get<0>(move); int toPiece = get<1>(move);
+    int from = get<2>(move); int to = get<3>(move);
 
-    positions[to] = piece;
-    positions[from] = EMPTY;
-    currentTurn = nextTurn;
-    if (piece == W_KING) whiteKingPos = to;
-    else if (piece == B_KING) blackKingPos = to;
-    if (toPiece == W_KING) whiteKingPos = -1;
-    else if (toPiece == B_KING) blackKingPos = -1;
+    if (fromPiece == W_PAWN || fromPiece == B_PAWN) {
+        int diff = abs(from - to);
+        if (diff == 7 || diff == 9) {
+            if (toPiece == EMPTY) {
+                char color = getPieceColor(fromPiece);
+                int enPassPos = color == 'w' ? to + 8 : to - 8;
+                positions[enPassPos] = EMPTY;
+            }
+        }
+    }
+}
+
+void ChessBoard::checkCastling(tuple<int, int, int, int> move) {
+    int fromPiece = get<0>(move); int toPiece = get<1>(move);
+    int from = get<2>(move); int to = get<3>(move);
+    int diff = abs(from - to);
+    char color = getPieceColor(fromPiece);
+    
+    bool leftCastle = color == 'w' ? get<0>(whiteCastle) : get<0>(blackCastle);
+    bool rightCastle = color == 'w' ? get<1>(whiteCastle) : get<1>(blackCastle);
+    int targetRook = color == 'w' ? W_ROOK : B_ROOK;
+
+    if (!leftCastle && !rightCastle) return;
+    
+    if (fromPiece == W_KING || fromPiece == B_KING) {
+        color == 'w' ? whiteCastle = make_tuple(false, false) : blackCastle = make_tuple(false, false);
+        if (from != 60 || from != 4) return;
+
+        if (diff == 2) {
+            int dir = from - to;
+            if (dir > 0 && leftCastle) {
+                int rookPiece = getPiece(to - 2);
+                if (rookPiece == targetRook) {
+                    positions[to + 1] = targetRook;
+                    positions[to - 2] = EMPTY;
+                }
+            }
+            else if (dir < 0 && rightCastle) {
+                int rookPiece = getPiece(to + 1);
+                if (rookPiece == targetRook) {
+                    positions[to - 1] = targetRook;
+                    positions[to + 1] = EMPTY;
+                }
+            }
+        }
+    }
+    else if (fromPiece == W_ROOK || fromPiece == B_ROOK) {
+        if (from == 0 || from == 7) {
+            blackCastle = from == 0 ? make_tuple(false, rightCastle) : make_tuple(leftCastle, false);
+        }
+        else if (from == 56 || from == 63) {
+            whiteCastle = from == 56 ? make_tuple(false, rightCastle) : make_tuple(leftCastle, false);
+        }
+    }
+}
+
+void ChessBoard::makeMove(int from, int to, bool printMove) {
+    tuple<int, int, int, int> move = makeMoveObj(from, to);
+    makeMove(move, printMove);
 }
 
 void ChessBoard::makeMove(tuple<int, int, int, int> move, bool printMove) {
@@ -608,10 +704,13 @@ void ChessBoard::makeMove(tuple<int, int, int, int> move, bool printMove) {
         cout << message << endl;
     }
 
+    checkCastling(move);
+    checkEnPassant(move);
     positions[to] = fromPiece;
     positions[from] = EMPTY;
-    currentTurn = nextMove;
+    lastPositions[to] = from;
     
+    currentTurn = nextMove;
     if (fromPiece == W_KING) whiteKingPos = to;
     else if (fromPiece == B_KING) blackKingPos = to;
     if (toPiece == W_KING) whiteKingPos = -1;
@@ -619,15 +718,8 @@ void ChessBoard::makeMove(tuple<int, int, int, int> move, bool printMove) {
 }
 
 void ChessBoard::unmakeMove(int from, int to, int movedPiece, int capturedPiece) {
-    char prevTurn = currentTurn == 'w' ? 'b' : 'w';
-    positions[from] = movedPiece;
-    positions[to] = capturedPiece;
-    currentTurn = prevTurn;
-    
-    if (movedPiece == W_KING) whiteKingPos = from;
-    else if (movedPiece == B_KING) blackKingPos = from;
-    if (capturedPiece == W_KING) whiteKingPos = to;
-    else if (capturedPiece == B_KING) blackKingPos = to;
+    tuple<int, int, int, int> move = make_tuple(movedPiece, capturedPiece, from, to);
+    unmakeMove(move);
 }
 
 void ChessBoard::unmakeMove(tuple<int, int, int, int> move) {
@@ -638,6 +730,7 @@ void ChessBoard::unmakeMove(tuple<int, int, int, int> move) {
     positions[from] = fromPiece;
     positions[to] = toPiece;
     currentTurn = prevTurn;
+    
     if (fromPiece == W_KING) whiteKingPos = from;
     else if (fromPiece == B_KING) blackKingPos = from;
     if (toPiece == W_KING) whiteKingPos = to;
@@ -814,8 +907,19 @@ bool ChessBoard::checkValidMove(tuple<int, int, int, int> move) {
     int fromPiece = get<0>(move);
     char pieceColor = getPieceColor(fromPiece);
 
+    vector<int> positionsCopy = getPositions();
+    map<int, int> lastPositionsCopy = getLastPositions();
+    tuple<bool, bool> whiteCastleCopy = whiteCastle;
+    tuple<bool, bool> blackCastleCopy = blackCastle;
+
     makeMove(move);
+    
     bool isInvalid = isInCheck(pieceColor);
+    positions = positionsCopy;
+    lastPositions = lastPositionsCopy;
+    whiteCastle = whiteCastleCopy;
+    blackCastle = blackCastleCopy;
+    
     unmakeMove(move);
     return !isInvalid;
 }

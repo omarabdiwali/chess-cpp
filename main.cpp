@@ -39,8 +39,9 @@ int main() {
     string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
     ChessBoard board(fen);
     board.printBoard();
+    bool gameEnd = false;
     
-    while (true) {
+    while (!gameEnd) {
         int posToMove;
         cout << endl;
         board.printTurn();
@@ -48,33 +49,33 @@ int main() {
         if (posToMove == -1) break;
 
         cout << endl;
+
         tuple<bool, vector<int>> result = board.printPossibleMovesBoard(posToMove);
         bool validPos = get<0>(result); vector<int> moves = get<1>(result);
+        if (validPos) cout << endl;
 
-        if (validPos) {
+        while (validPos && true) {
             int nextMove;
-            cout << endl << "Select destination, or -2 to select a different piece: ";
+            cout << "Select destination, or select a different piece: ";
             nextMove = getNumberFromUser();
 
-            if (nextMove == -2) continue;
-            if (nextMove == -1) break;
-
-            while ((find(moves.begin(), moves.end(), nextMove) == moves.end()) && nextMove != -2 && nextMove != -1) {
-                cout << "Invalid move! ";
-                cout << "Select destination, or -2 to select a different piece: ";
-                nextMove = getNumberFromUser();
+            if (nextMove == -1) { gameEnd = true; break; };
+            if (find(moves.begin(), moves.end(), nextMove) != moves.end()) {
+                cout << endl;
+                tuple<int, int, int, int> moveObj = board.makeMoveObj(posToMove, nextMove);
+                board.makeMove(moveObj);
+                board.printBoard(posToMove, nextMove);
+                cout << endl;
+                if (board.isCheckmate()) { gameEnd = true; }
+                break;
             }
 
-            cout << endl;
-            if (nextMove == -2) continue;
-            if (nextMove == -1) break;
-
-            tuple<int, int, int, int> moveObj = board.makeMoveObj(posToMove, nextMove);
-            board.makeMove(moveObj);
-            board.printBoard(posToMove, nextMove);
-            cout << endl;
-
-            if (board.isCheckmate()) break;
+            tuple<bool, vector<int>> testResult = board.printPossibleMovesBoard(nextMove);
+            if (get<0>(testResult)) {
+                validPos = get<0>(testResult); moves = get<1>(testResult);
+                posToMove = nextMove;
+                cout << endl;
+            }
         }
     }
     

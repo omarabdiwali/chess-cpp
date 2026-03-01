@@ -118,8 +118,12 @@ public:
     bool isCheckmate();
     bool checkPawn(int targetPos, int kingPos, int enemyColorBit);
     bool checkValidMove(std::tuple<int, int, int, int> move);
+    void checkEnPassant(std::tuple<int, int, int, int> move);
+    void checkCastling(std::tuple<int, int, int, int> move);
 
     std::vector<int> getPositions();
+    std::map<int, int> getLastPositions();
+    bool getCurrentTurn();
     std::vector<std::tuple<int, int, int, int>> getGenerationOnlyCaptures(char color);
     std::vector<std::tuple<int, int, int, int>> getColorMoves(std::vector<int> positions, char color);
     
@@ -132,9 +136,12 @@ public:
 
 private:
     std::vector<int> positions;
+    std::map<int, int> lastPositions;
     char currentTurn;
     int whiteKingPos;
     int blackKingPos;
+    std::tuple<bool, bool> whiteCastle = std::make_tuple(true, true);
+    std::tuple<bool, bool> blackCastle = std::make_tuple(true, true);
 };
 
 template<typename T>
