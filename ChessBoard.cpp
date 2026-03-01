@@ -108,6 +108,17 @@ bool isEmpty(int piece) {
     return piece == EMPTY;
 }
 
+bool isCorrectDistance(int pos1, int pos2, int maxStep) {
+    int modDiff = abs(pos1 % 8 - pos2 % 8);
+    return modDiff <= maxStep;
+}
+
+bool isAdjacent(int a, int b) {
+    int dx = abs((a & 7) - (b & 7));
+    int dy = abs((a >> 3) - (b >> 3));
+    return (dx <= 1 && dy <= 1);
+}
+
 template<typename T, typename... Args>
 string createMessage(const string& format, T value, Args... args) {
     ostringstream oss;
@@ -148,7 +159,6 @@ int ChessBoard::getPiece(int pos) {
     if (pos >= 0 && pos < positions.size()) {
         return positions[pos];
     }
-    
     return -1;
 }
 
@@ -172,129 +182,72 @@ vector<int> ChessBoard::generateMoves(int pos) {
                 if (checkValidMove(move)) validMoves.push_back(to);
             }
         }
-
-        return validMoves;
     }
+    return validMoves;
 }
 
 vector<int> ChessBoard::knightMovement(int pos) {
-    int rPos = pos - 6; int rPos1 = pos + 10; int lPos = pos - 10; int lPos1 = pos + 6;
-    int dPos = pos + 15; int dPos1 = pos + 17; int uPos = pos - 15; int uPos1 = pos - 17;
-
+    const int movement[] = { -17, -15, -10, -6, 6, 10, 15, 17 };
     int piece = getPiece(pos);
     string errorMessage = createMessage("Knight Movement @ {} - {}", pos, translatePiece(piece));
     checkForErrors(piece, errorMessage);
 
     char color = piece < 8 ? 'w' : 'b';
-    vector<int> allAvailable;
-    vector<int> possibleMoves;
+    vector<int> moves;
 
-    switch (pos % 8) {
-    case 7:
-        allAvailable = { lPos, lPos1, dPos, uPos1 };
-        break;
-    case 0:
-        allAvailable = { rPos, rPos1, dPos1, uPos };
-        break;
-    case 1:
-        allAvailable = { rPos, rPos1, uPos, uPos1, dPos, dPos1 };
-        break;
-    case 6:
-        allAvailable = { lPos, lPos1, uPos, uPos1, dPos, dPos1 };
-        break;
-    default:
-        allAvailable = { lPos, lPos1, rPos, rPos1, uPos, uPos1, dPos, dPos1 };
-        break;
-    }
-
-    for (const int pos : allAvailable) {
-        if (checkValidMove(color, pos)) {
-            possibleMoves.push_back(pos);
+    for (const int diff : movement) {
+        int nextPos = pos + diff;
+        if (isCorrectDistance(pos, nextPos, 2) && checkValidMove(color, nextPos)) {
+            moves.push_back(nextPos);
         }
     }
-    return possibleMoves;
+    return moves;
 }
 
 vector<int> ChessBoard::kingMovement(int pos) {
-    int tr = pos - 7; int tl = pos - 9; int t = pos - 8; int r = pos + 1;
-    int l = pos - 1; int br = pos + 9; int bl = pos + 7; int b = pos + 8;
-
+    const int movement[] = { -9, -8, -7, -1, 1, 7, 8, 9 };
     int piece = getPiece(pos);
     string errorMessage = createMessage("King Movement @ {} - {}", pos, translatePiece(piece));
     checkForErrors(piece, errorMessage);
 
     char color = piece < 8 ? 'w' : 'b';
-    vector<int> allAvailable;
-    vector<int> possibleMoves;
+    vector<int> moves;
 
-    if (pos % 8 == 0) {
-        allAvailable = { t, b, r, tr, br };
-    }
-    else if (pos % 8 == 7) {
-        allAvailable = { t, b, l, tl, bl };
-    }
-    else {
-        allAvailable = { tr, br, r, t, b, l, tl, bl };
-    }
-
-    for (const int pos : allAvailable) {
-        if (checkValidMove(color, pos)) {
-            possibleMoves.push_back(pos);
+    for (const int diff : movement) {
+        int nextPos = pos + diff;
+        if (isCorrectDistance(pos, nextPos, 1) && checkValidMove(color, nextPos)) {
+            moves.push_back(nextPos);
         }
     }
 
-    return possibleMoves;
+    return moves;
 }
 
 vector<int> ChessBoard::bishopMovement(int pos) {
-    int rPos = pos - 7; int lPos = pos - 9; int drPos = pos + 9; int dlPos = pos + 7;
-    bool activeUpRight = true; bool activeUpLeft = true; bool activeDownRight = true;
-    bool activeDownLeft = true; bool run = true;
-
+    const int movement[] = { -9, -7, 7, 9 };
     int piece = getPiece(pos);
     string errorMessage = createMessage("Bishop Movement @ {} - {}", pos, translatePiece(piece));
     checkForErrors(piece, errorMessage);
 
     char opColor = piece < 8 ? 'b' : 'w';
-    vector<int> valid;
+    vector<int> moves;
 
-    while (run) {
-        int ru = getPiece(rPos); int rd = getPiece(drPos);
-        int lu = getPiece(lPos); int ld = getPiece(dlPos);
-        bool end = true;
-
-        if (!isError(ru) && (isEmpty(ru) || getPieceColor(ru) == opColor) && activeUpRight && pos % 8 != 7) {
-            valid.push_back(rPos);
-            activeUpRight = !(!isEmpty(ru) || rPos % 8 == 7);
-            rPos -= 7;
-            end = false;
+    for (auto& diff : movement) {
+        int curPos = pos;
+        while (true) {
+            curPos += diff;
+            if (curPos < 0 || curPos > 63 || !isAdjacent(curPos - diff, curPos)) break;
+            int curPiece = getPiece(curPos);
+            if (curPiece != EMPTY) {
+                if (curPiece == -1) break;
+                if (getPieceColor(curPiece) == opColor) moves.push_back(curPos);
+                break;
+            }
+            moves.push_back(curPos);
         }
-
-        if (!isError(rd) && (isEmpty(rd) || getPieceColor(rd) == opColor) && activeDownRight && pos % 8 != 7) {
-            valid.push_back(drPos);
-            activeDownRight = !(!isEmpty(rd) || drPos % 8 == 7);
-            drPos += 9;
-            end = false;
-        }
-
-        if (!isError(lu) && (isEmpty(lu) || getPieceColor(lu) == opColor) && activeUpLeft && pos % 8 != 0) {
-            valid.push_back(lPos);
-            activeUpLeft = !(!isEmpty(lu) || lPos % 8 == 0);
-            lPos -= 9;
-            end = false;
-        }
-
-        if (!isError(ld) && (isEmpty(ld) || getPieceColor(ld) == opColor) && activeDownLeft && pos % 8 != 0) {
-            valid.push_back(dlPos);
-            activeDownLeft = !(!isEmpty(ld) || dlPos % 8 == 0);
-            dlPos += 7;
-            end = false;
-        }
-
-        run = !end;
     }
 
-    return valid;
+    return moves;
 }
 
 vector<int> ChessBoard::pawnMovement(int pos) {
@@ -314,11 +267,12 @@ vector<int> ChessBoard::pawnMovement(int pos) {
     int onePiece = getPiece(one);
     int twoPiece = getPiece(two);
     bool isOneEmpty = isEmpty(onePiece);
+    bool isTwoEmpty = isEmpty(twoPiece);
 
-    if (!isError(onePiece) && isEmpty(onePiece)) {
+    if (isOneEmpty) {
         moves.push_back(one);
     }
-    if (row == startRank && (!isError(onePiece) && isEmpty(onePiece)) && (!isError(twoPiece) && isEmpty(twoPiece))) {
+    if (row == startRank && isOneEmpty && isTwoEmpty) {
         moves.push_back(two);
     }
 
@@ -341,51 +295,25 @@ vector<int> ChessBoard::pawnMovement(int pos) {
 }
 
 vector<int> ChessBoard::rookMovement(int pos) {
+    const int movement[] = { -8, -1, 8, 1 };
     int piece = getPiece(pos);
     vector<int> moves;
     string errorMessage = createMessage("Rook Movement @ {} - {}", pos, translatePiece(piece));
     checkForErrors(piece, errorMessage);
 
-    bool run = true;
-    char opColor = piece < 8 ? 'b' : 'w';
-    int rMove = 1; int lMove = 1; int nxtPos = pos + 8; int prevPos = pos - 8;
-    bool moveRight = true; bool moveLeft = true; bool moveUp = true; bool moveDown = true;
-
-    while (run) {
-        bool end = true;
-        int rNxt = pos + rMove; int lNxt = pos - lMove;
-        int piece = getPiece(nxtPos); int prevPiece = getPiece(prevPos);
-        int rPiece = getPiece(rNxt); int lPiece = getPiece(lNxt);
-
-        if (!isError(piece) && (isEmpty(piece) || getPieceColor(piece) == opColor) && moveDown) {
-            moves.push_back(nxtPos);
-            moveDown = isEmpty(piece);
-            nxtPos += 8;
-            end = false;
+    for (auto& diff : movement) {
+        int curPos = pos;
+        while (true) {
+            curPos += diff;
+            if (curPos < 0 || curPos > 63 || !isAdjacent(curPos - diff, curPos)) break;
+            int curPiece = getPiece(curPos);
+            if (curPiece != EMPTY) {
+                if (curPiece == -1) break;
+                if (getPieceColor(curPiece) != getPieceColor(piece)) moves.push_back(curPos);
+                break;
+            }
+            moves.push_back(curPos);
         }
-
-        if (!isError(prevPiece) && (isEmpty(prevPiece) || getPieceColor(prevPiece) == opColor) && moveUp) {
-            moves.push_back(prevPos);
-            moveUp = isEmpty(prevPiece);
-            prevPos -= 8;
-            end = false;
-        }
-
-        if (!isError(rPiece) && (isEmpty(rPiece) || getPieceColor(rPiece) == opColor) && moveRight && pos % 8 != 7) {
-            moves.push_back(rNxt);
-            moveRight = isEmpty(rPiece) && rNxt % 8 != 7;
-            rMove += 1;
-            end = false;
-        }
-
-        if (!isError(lPiece) && (isEmpty(lPiece) || getPieceColor(lPiece) == opColor) && moveLeft && pos % 8 != 0) {
-            moves.push_back(lNxt);
-            moveLeft = isEmpty(lPiece) && lNxt % 8 != 0;
-            lMove += 1;
-            end = false;
-        }
-
-        run = !end;
     }
 
     return moves;
@@ -399,7 +327,6 @@ vector<int> ChessBoard::queenMovement(int pos) {
 
 void ChessBoard::getPositionsFromFen(string& fen) {
     positions = {};
-    int drawPos = 1;
 
     for (int i = 0; i < fen.length(); i++) {
         int piece = EMPTY;
@@ -481,19 +408,22 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
     vector<int> moves;
 
     if (fromPiece == -1 || fromPiece == EMPTY) {
-        cout << (fromPiece == -1 ? "Invalid board position (0 <= pos <= 63)" : "Selected position is empty") << "." << endl;
+        string reason = fromPiece == -1 ? "Invalid board position (0 <= pos <= 63)." : "Selected position is empty.";
+        cout << reason << endl;
         return make_tuple(false, moves);
     }
     
     char pieceColor = getPieceColor(fromPiece);
     if (pieceColor != currentTurn) {
-        cout << "Invalid piece to move - It is currently " << (currentTurn == 'w' ? "White's turn" : "Black's turn") << "." << endl;
+        string whosTurn = currentTurn == 'w' ? "White's turn." : "Black's turn.";
+        cout << "Invalid piece to move - It is currently " << whosTurn << endl;
         return make_tuple(false, moves);
     }
 
     moves = generateMoves(pos);
     if (moves.size() == 0) {
-        cout << "There are no destinations." << endl;
+        string reason = isInCheck(pieceColor) ? "Currently in check - Invalid piece." : "There are no destinations.";
+        cout << reason << endl;
         return make_tuple(false, moves);
     }    
 
@@ -756,17 +686,6 @@ string ChessBoard::getMoveData(tuple<int, int, int, int> move) {
     return message;
 }
 
-bool isAdjacent(int a, int b) {
-    int dx = abs((a & 7) - (b & 7));
-    int dy = abs((a >> 3) - (b >> 3));
-    return (dx <= 1 && dy <= 1);
-}
-
-bool isCorrectDistance(int pos1, int pos2, int maxStep) {
-    int modDiff = abs(pos1 % 8 - pos2 % 8);
-    return modDiff <= maxStep;
-}
-
 bool ChessBoard::checkPawn(int targetPos, int kingPos, int enemyColorBit) {
     if (targetPos < 0 || targetPos >= 64) return false;
     if (abs((targetPos & 7) - (kingPos & 7)) != 1) return false;
@@ -857,6 +776,9 @@ bool ChessBoard::isInCheck(char color) {
         if (checkPawn(kingPos + 7, kingPos, enemyColorBit) ||
             checkPawn(kingPos + 9, kingPos, enemyColorBit)) return true;
     }
+
+    vector<int> oppKingMoves = kingMovement(color == 'w' ? blackKingPos : whiteKingPos);
+    if (find(oppKingMoves.begin(), oppKingMoves.end(), kingPos) != oppKingMoves.end()) return true;
 
     return false;
 }
