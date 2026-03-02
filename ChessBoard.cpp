@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <tuple>
 #include <random>
+#include <cctype>
 
 using namespace std;
 
@@ -15,34 +16,6 @@ ChessBoard::ChessBoard() : positions({}), blackKingPos(-1), whiteKingPos(-1), cu
 ChessBoard::ChessBoard(vector<int> a) : positions(a), blackKingPos(getPosFromPiece(B_KING)), whiteKingPos(getPosFromPiece(W_KING)), currentTurn('w') { }
 ChessBoard::ChessBoard(string fen) : currentTurn('w') { getPositionsFromFen(fen); }
 ChessBoard::~ChessBoard() { }
-
-template <typename T>
-void printVector2(vector<T> vec) {
-    cout << "[";
-    for (const auto& item : vec) {
-        if (item == vec.at(0)) {
-            cout << item;
-        }
-        else {
-            cout << ", " << item;
-        }
-    }
-    cout << "]" << endl;
-}
-
-void printVector1(vector<tuple<int, int, int, int>> vec) {
-    cout << "[";
-    for (int i = 0; i < vec.size(); i++) {
-        tuple<int, int, int, int> item = vec[i];
-        if (i == 0) {
-            cout << "(" << get<0>(item) << "," << get<1>(item) << "," << get<2>(item) << "," << get<3>(item) << ")";
-        }
-        else {
-            cout << ", " << "(" << get<0>(item) << "," << get<1>(item) << "," << get<2>(item) << "," << get<3>(item) << ")";
-        }
-    }
-    cout << "]" << endl;
-}
 
 string createMessage(const string& format) {
     return format;
@@ -58,43 +31,30 @@ string translatePiece(int piece) {
     {
         case EMPTY:
             return "  ";
-            break;
         case B_PAWN:
             return "bP";
-            break;
         case B_BISHOP:
             return "bB";
-            break;
         case B_ROOK:
             return "bR";
-            break;
         case B_QUEEN:
             return "bQ";
-            break;
         case B_KING:
             return "bK";
-            break;
         case B_KNIGHT:
             return "bN";
-            break;
         case W_PAWN:
             return "wP";
-            break;
         case W_BISHOP:
             return "wB";
-            break;
         case W_ROOK:
             return "wR";
-            break;
         case W_QUEEN:
             return "wQ";
-            break;
         case W_KING:
             return "wK";
-            break;
         case W_KNIGHT:
             return "wN";
-            break;
         default:
             return "";
     }
@@ -329,8 +289,10 @@ vector<int> ChessBoard::pawnMovement(int pos) {
         if (prevRow == startRank) {
             int rightPiece = getPiece(pos + 1);
             int leftPiece = getPiece(pos - 1);
-            if (rightPiece != -1 && rightPiece != EMPTY && rightCapPiece == EMPTY && getPieceColor(rightPiece) != color) moves.push_back(rightCap);
-            if (leftPiece != -1 && leftPiece != EMPTY && leftCapPiece == EMPTY && getPieceColor(leftPiece) != color) moves.push_back(leftCap);
+            if (rightPiece != -1 && rightPiece != EMPTY && rightCapPiece == EMPTY 
+                && !onRightFile && getPieceColor(rightPiece) != color) moves.push_back(rightCap);
+            if (leftPiece != -1 && leftPiece != EMPTY && leftCapPiece == EMPTY 
+                && !onLeftFile && getPieceColor(leftPiece) != color) moves.push_back(leftCap);
         }
     }
 
@@ -686,24 +648,79 @@ void ChessBoard::checkCastling(tuple<int, int, int, int> move) {
     }
 }
 
-void ChessBoard::makeMove(int from, int to, bool printMove) {
-    tuple<int, int, int, int> move = makeMoveObj(from, to);
-    makeMove(move, printMove);
+int getUserPromotion(char color, string details) {
+    vector<string> possibilites = { "rook", "bishop", "knight", "queen", "r", "b", "n", "q" };
+    string input;
+    
+    while (true) {
+        cout << details;
+        getline(cin, input);
+        transform(input.begin(), input.end(), input.begin(), [](unsigned char c) { return tolower(c); });
+        
+        bool isValid = find(possibilites.begin(), possibilites.end(), input) != possibilites.end();
+
+        if (!isValid) {
+            cout << "Invalid input!" << endl;
+            continue;
+        }
+
+        if (input == "rook" || input == "r") { return color == 'w' ? W_ROOK : B_ROOK; }
+        if (input == "bishop" || input == "b") { return color == 'w' ? W_BISHOP : B_BISHOP; }
+        if (input == "knight" || input == "n") { return color == 'w' ? W_KNIGHT : B_KNIGHT; }
+        if (input == "queen" || input == "q") { return color == 'w' ? W_QUEEN : B_QUEEN; }
+    }
 }
 
-void ChessBoard::makeMove(tuple<int, int, int, int> move, bool printMove) {
+bool ChessBoard::checkPromotion(tuple<int, int, int, int> move) {
+    int fromPiece = get<0>(move); int toPiece = get<1>(move);
+    int from = get<2>(move); int to = get<3>(move);
+    int toRank = floor(to / 8);
+
+    if (fromPiece == W_PAWN || fromPiece == B_PAWN) {
+        if (fromPiece == W_PAWN && toRank == 0) return true;
+        if (fromPiece == B_PAWN && toRank == 7) return true;
+    }
+
+    return false;
+}
+
+int ChessBoard::getPromotion(tuple<int, int, int, int> move) {
+    int fromPiece = get<0>(move); int toPiece = get<1>(move);
+    int from = get<2>(move); int to = get<3>(move);
+    int toRank = floor(to / 8);
+
+    string details = "Select piece to promote to [rook ('r'), bishop ('b'), knight ('n'), queen ('q')]: ";
+    
+    if (fromPiece == W_PAWN || fromPiece == B_PAWN) {
+        if (fromPiece == W_PAWN && toRank == 0) {
+            return getUserPromotion('w', details);
+        }
+        else if (fromPiece == B_PAWN && toRank == 7) {
+            return getUserPromotion('b', details);
+        }
+    }
+
+    return fromPiece;
+}
+
+void ChessBoard::makeMove(int from, int to, bool simulated) {
+    tuple<int, int, int, int> move = makeMoveObj(from, to);
+    makeMove(move, simulated);
+}
+
+void ChessBoard::makeMove(tuple<int, int, int, int> move, bool simulated) {
     int fromPiece = get<0>(move); int toPiece = get<1>(move);
     int from = get<2>(move); int to = get<3>(move);
     char nextMove = currentTurn == 'w' ? 'b' : 'w';
-
     if (fromPiece == -1) return;
 
-    if (printMove) {
-        string capturing = toPiece == EMPTY ? "." : createMessage(", capturing {}.", translatePiece(toPiece));
-        string message = createMessage("Moving {} from {} to {}{}", translatePiece(fromPiece), from, to, capturing);
-        cout << message << endl;
-    }
+    //if (printMove) {
+    //    string capturing = toPiece == EMPTY ? "." : createMessage(", capturing {}.", translatePiece(toPiece));
+    //    string message = createMessage("Moving {} from {} to {}{}", translatePiece(fromPiece), from, to, capturing);
+    //    cout << message << endl;
+    //}
 
+    fromPiece = checkPromotion(move) ? simulated ? (currentTurn == 'w' ? W_QUEEN : B_QUEEN) : getPromotion(move) : fromPiece;
     checkCastling(move);
     checkEnPassant(move);
     positions[to] = fromPiece;
@@ -747,7 +764,7 @@ void ChessBoard::makeRandomMove(string turn) {
     //string message = createMessage("Moving {} from {} to {}{}", translatePiece(getPiece(from)), from, to, capturing);
     //cout << message << endl << endl;
 
-    makeMove(from, to, true);
+    makeMove(from, to);
     printBoard();
     cout << endl;
 }
@@ -912,7 +929,7 @@ bool ChessBoard::checkValidMove(tuple<int, int, int, int> move) {
     tuple<bool, bool> whiteCastleCopy = whiteCastle;
     tuple<bool, bool> blackCastleCopy = blackCastle;
 
-    makeMove(move);
+    makeMove(move, true);
     
     bool isInvalid = isInCheck(pieceColor);
     positions = positionsCopy;

@@ -98,8 +98,8 @@ public:
 
     std::tuple<int, int, int, int> makeMoveObj(int from, int to);
     void makeRandomMove(std::string turn);
-    void makeMove(int from, int to, bool printMove=false);
-    void makeMove(std::tuple<int, int, int, int> move, bool printMove = false);
+    void makeMove(int from, int to, bool simulated=false);
+    void makeMove(std::tuple<int, int, int, int> move, bool simulated=false);
     void unmakeMove(int from, int to, int movedPiece, int capturedPiece);
     void unmakeMove(std::tuple<int, int, int, int> move);
     void printMoveData(std::tuple<int, int, int, int> move);
@@ -120,10 +120,12 @@ public:
     bool checkValidMove(std::tuple<int, int, int, int> move);
     void checkEnPassant(std::tuple<int, int, int, int> move);
     void checkCastling(std::tuple<int, int, int, int> move);
+    bool checkPromotion(std::tuple<int, int, int, int> move);
 
     std::vector<int> getPositions();
     std::map<int, int> getLastPositions();
     bool getCurrentTurn();
+    int getPromotion(std::tuple<int, int, int, int> move);
     std::vector<std::tuple<int, int, int, int>> getGenerationOnlyCaptures(char color);
     std::vector<std::tuple<int, int, int, int>> getColorMoves(std::vector<int> positions, char color);
     
