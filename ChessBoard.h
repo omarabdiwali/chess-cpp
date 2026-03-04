@@ -25,7 +25,6 @@ public:
     std::tuple<int, int, int, int> makeMoveObj(int from, int to);
     void makeMove(std::tuple<int, int, int, int> move, bool simulated = false);
 
-    // void printPositions();
     void printBoard();
     void printTurn();
     void printBoard(int from, int to);
@@ -42,19 +41,16 @@ public:
     void checkCastling(std::tuple<int, int, int, int> move);
     bool checkPromotion(std::tuple<int, int, int, int> move);
 
-    std::map<int, int> getLastPositions();
     int getPromotion(std::tuple<int, int, int, int> move);
 
     std::vector<int> knightMovement(int pos);
     std::vector<int> pawnMovement(int pos);
     std::vector<int> kingMovement(int pos);
-    std::vector<int> queenMovement(int pos);
-    std::vector<int> rookMovement(int pos);
-    std::vector<int> bishopMovement(int pos);
+    std::vector<int> diagonalAndOrthogonalMovement(std::string piece, int pos);
 
 private:
     std::vector<int> positions;
-    std::map<int, int> lastPositions;
+    std::map<int, int> enPassantCtx;
     char currentTurn;
     int whiteKingPos;
     int blackKingPos;

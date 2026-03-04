@@ -49,7 +49,10 @@ int main() {
         posToMove = getNumberFromUser();
         if (posToMove == -1) break;
 
-        cout << endl;
+        if (posToMove == -3) {
+            cout << "Invalid board position (0 <= pos <= 63)." << endl;
+            continue;
+        }
 
         tuple<bool, vector<int>> result = board.printPossibleMovesBoard(posToMove);
         bool validPos = get<0>(result); vector<int> moves = get<1>(result);
@@ -60,6 +63,11 @@ int main() {
             cout << "Select destination, or select a different piece: ";
             nextMove = getNumberFromUser();
 
+            if (nextMove == -3) {
+                cout << "Invalid board position (0 <= pos <= 63)." << endl;
+                continue;
+            }
+            
             if (nextMove == -1) { gameEnd = true; break; };
             if (find(moves.begin(), moves.end(), nextMove) != moves.end()) {
                 cout << endl;
@@ -67,7 +75,7 @@ int main() {
                 board.makeMove(moveObj);
                 board.printBoard(posToMove, nextMove);
                 cout << endl;
-                if (board.isCheckmate()) { gameEnd = true; }
+                gameEnd = board.isCheckmate();
                 break;
             }
 
