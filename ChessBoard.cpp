@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <tuple>
 #include <cctype>
+#include <cmath>
 
 using namespace std;
 
@@ -69,34 +70,34 @@ bool verifySameColor(int piece, char color) {
 string translatePiece(int piece) {
     switch (piece)
     {
-        case EMPTY:
-            return "  ";
-        case B_PAWN:
-            return "bP";
-        case B_BISHOP:
-            return "bB";
-        case B_ROOK:
-            return "bR";
-        case B_QUEEN:
-            return "bQ";
-        case B_KING:
-            return "bK";
-        case B_KNIGHT:
-            return "bN";
-        case W_PAWN:
-            return "wP";
-        case W_BISHOP:
-            return "wB";
-        case W_ROOK:
-            return "wR";
-        case W_QUEEN:
-            return "wQ";
-        case W_KING:
-            return "wK";
-        case W_KNIGHT:
-            return "wN";
-        default:
-            return "";
+    case EMPTY:
+        return "  ";
+    case B_PAWN:
+        return "bP";
+    case B_BISHOP:
+        return "bB";
+    case B_ROOK:
+        return "bR";
+    case B_QUEEN:
+        return "bQ";
+    case B_KING:
+        return "bK";
+    case B_KNIGHT:
+        return "bN";
+    case W_PAWN:
+        return "wP";
+    case W_BISHOP:
+        return "wB";
+    case W_ROOK:
+        return "wR";
+    case W_QUEEN:
+        return "wQ";
+    case W_KING:
+        return "wK";
+    case W_KNIGHT:
+        return "wN";
+    default:
+        return "";
     }
 }
 
@@ -146,7 +147,7 @@ vector<int> removeDuplicates(const vector<int>& a, const vector<int>& b) {
     return vector<int>(uniqueElements.begin(), uniqueElements.end());
 }
 
-void printRow(char ch, int width, bool noDividers=false, bool endWithDivider=false) {
+void printRow(char ch, int width, bool noDividers = false, bool endWithDivider = false) {
     cout << "   ";
     for (int i = 0; i < width; i++) {
         if (!noDividers && i % 4 == 0) {
@@ -175,13 +176,34 @@ void printAxis(int width) {
 }
 
 void ChessBoard::getPositionsFromFen(string& fen) {
+    int spacePassed = 0;
     positions = {};
 
     for (int i = 0; i < fen.length(); i++) {
         int piece = EMPTY;
         char letter = fen.at(i);
 
-        if (isdigit(static_cast<unsigned char>(letter))) {
+        if (letter == ' ') spacePassed += 1;
+        else if (spacePassed > 0) {
+            if (spacePassed == 1) currentTurn = letter;
+            else if (spacePassed == 2) {
+                if (letter == '-') {
+                    whiteCastle = make_tuple(false, false);
+                    blackCastle = make_tuple(false, false);
+                }
+                else if (islower(static_cast<unsigned char>(letter))) {
+                    bool leftCastle = get<0>(blackCastle); bool rightCastle = get<1>(blackCastle);
+                    if (letter == 'q') blackCastle = make_tuple(true, rightCastle);
+                    else if (letter == 'k') blackCastle = make_tuple(leftCastle, true);
+                }
+                else if (isupper(static_cast<unsigned char>(letter))) {
+                    bool leftCastle = get<0>(whiteCastle); bool rightCastle = get<1>(whiteCastle);
+                    if (letter == 'Q') { whiteCastle = make_tuple(true, rightCastle); }
+                    else if (letter == 'K') { whiteCastle = make_tuple(leftCastle, true); }
+                }
+            }
+        }
+        else if (isdigit(static_cast<unsigned char>(letter))) {
             int numValue = letter - '0';
             for (int j = 0; j < numValue; j++) {
                 positions.push_back(EMPTY);
@@ -221,7 +243,7 @@ vector<int> ChessBoard::generateMoves(int pos) {
     int piece = getPiece(pos);
     vector<int> totalMoves;
     vector<int> validMoves;
-    
+
     if (piece != EMPTY) {
         if (piece == W_PAWN || piece == B_PAWN) { totalMoves = pawnMovement(pos); }
         else if (piece == W_ROOK || piece == B_ROOK) { totalMoves = rookMovement(pos); }
@@ -238,7 +260,7 @@ vector<int> ChessBoard::generateMoves(int pos) {
             }
         }
     }
-    
+
     return validMoves;
 }
 
@@ -257,7 +279,7 @@ vector<int> ChessBoard::knightMovement(int pos) {
             moves.push_back(nextPos);
         }
     }
-    
+
     return moves;
 }
 
@@ -379,13 +401,13 @@ vector<int> ChessBoard::pawnMovement(int pos) {
         moves.push_back(rightCap);
     }
 
-    const int leftAndRight[] = {pos - 1, pos + 1};
+    const int leftAndRight[] = { pos - 1, pos + 1 };
     for (auto neighbor : leftAndRight) {
         int piece = getPiece(neighbor);
         int opStartRank = startRank == 6 ? 1 : 6;
         if (piece != getTargetedPieceType("pawn", isWhite ? 'b' : 'w')) continue;
         if (!isCorrectDistance(neighbor, pos, 1)) continue;
-        
+
         auto prev = lastPositions.find(neighbor);
         if (prev != lastPositions.end()) {
             int prevPosition = prev->second;
@@ -457,7 +479,7 @@ bool ChessBoard::checkValidMove(tuple<int, int, int, int> move) {
     whiteKingPos = whiteKingPosCopy;
     blackKingPos = blackKingPosCopy;
     currentTurn = currentTurn == 'w' ? 'b' : 'w';
-    
+
     return !isInvalid;
 }
 
@@ -470,7 +492,7 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
         cout << reason << endl;
         return make_tuple(false, moves);
     }
-    
+
     char pieceColor = getPieceColor(fromPiece);
     if (pieceColor != currentTurn) {
         string whosTurn = currentTurn == 'w' ? "White's turn." : "Black's turn.";
@@ -506,7 +528,7 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
             SetConsoleTextAttribute(hConsole, contains ? BACKGROUND_BLUE : BACKGROUND_GREEN);
         }
-        
+
         string pieceString = contains ? i < 10 ? createMessage(" {}", i) : createMessage("{}", i) : translated;
         cout << " " << pieceString << " ";
 
@@ -536,7 +558,7 @@ void ChessBoard::printBoard(int from, int to) {
     printRow('-', dashesWidth, true);
 
     int count = 0;
-    for (int i = 0; i < 64; i++) {  
+    for (int i = 0; i < 64; i++) {
         int piece = getPiece(i);
         string translated = translatePiece(piece);
 
@@ -551,7 +573,7 @@ void ChessBoard::printBoard(int from, int to) {
             SetConsoleTextAttribute(hConsole, i == from ? BACKGROUND_RED : BACKGROUND_GREEN);
         }
         cout << " " << translated << " ";
-        
+
         if (i % 8 == 7) {
             if (i == from || i == to) {
                 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -574,7 +596,7 @@ void ChessBoard::printBoard() {
     int spacesWidth = 8 * 4 + 1;
     printAxis(dashesWidth);
     printRow('-', dashesWidth, true);
-    
+
     int count = 0;
     for (int i = 0; i < 64; i++) {
         int piece = getPiece(i);
@@ -609,13 +631,20 @@ void ChessBoard::makeMove(tuple<int, int, int, int> move, bool simulated) {
     char nextMove = currentTurn == 'w' ? 'b' : 'w';
     if (fromPiece == -1) return;
 
+    lastPositions.clear();
     fromPiece = checkPromotion(move) ? simulated ? (currentTurn == 'w' ? W_QUEEN : B_QUEEN) : getPromotion(move) : fromPiece;
     checkCastling(move);
     checkEnPassant(move);
     positions[to] = fromPiece;
     positions[from] = EMPTY;
-    lastPositions[to] = from;
     
+    if (fromPiece == W_PAWN || fromPiece == B_PAWN) {
+        int diff = abs(to - from);
+        if (diff == 16) {
+            lastPositions[to] = from;
+        }
+    }
+
     currentTurn = nextMove;
     if (fromPiece == W_KING) whiteKingPos = to;
     else if (fromPiece == B_KING) blackKingPos = to;
@@ -627,11 +656,11 @@ bool ChessBoard::isCheckmate() {
     for (int pos = 0; pos < 64; pos++) {
         int piece = getPiece(pos);
         if (piece == -1 || getPieceColor(piece) != currentTurn) continue;
-        
+
         vector<int> moves = generateMoves(pos);
         if (moves.size() > 0) return false;
     }
-    
+
     cout << (currentTurn == 'w' ? "Black Wins!" : "White Wins!") << endl;
     return true;
 }
@@ -655,7 +684,7 @@ int ChessBoard::getPromotion(tuple<int, int, int, int> move) {
     int toRank = floor(to / 8);
 
     string details = "Select piece to promote to [rook ('r'), bishop ('b'), knight ('n'), queen ('q')]: ";
-    
+
     if (fromPiece == W_PAWN || fromPiece == B_PAWN) {
         if (fromPiece == W_PAWN && toRank == 0) {
             return getUserPromotion('w', details);
@@ -673,13 +702,13 @@ void ChessBoard::checkCastling(tuple<int, int, int, int> move) {
     int from = get<2>(move); int to = get<3>(move);
     int diff = abs(from - to);
     char color = getPieceColor(fromPiece);
-    
+
     bool leftCastle = color == 'w' ? get<0>(whiteCastle) : get<0>(blackCastle);
     bool rightCastle = color == 'w' ? get<1>(whiteCastle) : get<1>(blackCastle);
     int targetRook = color == 'w' ? W_ROOK : B_ROOK;
 
     if (!leftCastle && !rightCastle) return;
-    
+
     if (fromPiece == W_KING || fromPiece == B_KING) {
         color == 'w' ? whiteCastle = make_tuple(false, false) : blackCastle = make_tuple(false, false);
         if (from != 60 && from != 4) return;
@@ -704,7 +733,7 @@ void ChessBoard::checkCastling(tuple<int, int, int, int> move) {
 
         return;
     }
-    
+
     if (fromPiece == W_ROOK || fromPiece == B_ROOK) {
         if (from == 0 || from == 7) {
             blackCastle = from == 0 ? make_tuple(false, rightCastle) : make_tuple(leftCastle, false);
@@ -713,7 +742,7 @@ void ChessBoard::checkCastling(tuple<int, int, int, int> move) {
             whiteCastle = from == 56 ? make_tuple(false, rightCastle) : make_tuple(leftCastle, false);
         }
     }
-    
+
     if (to == 0 || to == 7 || to == 56 || to == 63) {
         if (to == 0 || to == 7) {
             blackCastle = to == 0 ? make_tuple(false, rightCastle) : make_tuple(leftCastle, false);
@@ -757,7 +786,7 @@ bool ChessBoard::isInCheck(char color) {
             if (piece != EMPTY && piece == getTargetedPieceType("knight", enemyColor)) return true;
         }
     }
-    
+
     static const int directions[] = { -8, 8, -1, 1, -9, -7, 7, 9 };
     for (int i = 0; i < 8; i++) {
         int target = kingPos;
@@ -767,7 +796,7 @@ bool ChessBoard::isInCheck(char color) {
 
             int piece = positions[target];
             if (piece != EMPTY) {
-                if (i < 4 && piece == getTargetedPieceType("queen", enemyColor)) return true;
+                if (i < 4 && (piece == getTargetedPieceType("rook", enemyColor) || piece == getTargetedPieceType("queen", enemyColor))) return true;
                 if (i >= 4 && (piece == getTargetedPieceType("bishop", enemyColor) || piece == getTargetedPieceType("queen", enemyColor))) return true;
                 break;
             }
@@ -788,7 +817,7 @@ bool ChessBoard::isInCheck(char color) {
 
     vector<int> oppKingMoves = kingMovement(color == 'w' ? blackKingPos : whiteKingPos);
     if (find(oppKingMoves.begin(), oppKingMoves.end(), kingPos) != oppKingMoves.end()) return true;
-    
+
     return false;
 }
 

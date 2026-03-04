@@ -1,13 +1,14 @@
 #include "ChessBoard.h"
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 using namespace std;
 
 template <typename T>
 void printVector(vector<T> vec) {
     cout << "[";
-    for (const auto& item: vec) {
+    for (const auto& item : vec) {
         if (item == vec.at(0)) {
             cout << item;
         }
@@ -36,11 +37,11 @@ int getNumberFromUser() {
 }
 
 int main() {
-    string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+    string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk";
     ChessBoard board(fen);
     board.printBoard();
     bool gameEnd = false;
-    
+
     while (!gameEnd) {
         int posToMove;
         cout << endl;
@@ -78,6 +79,5 @@ int main() {
             }
         }
     }
-    
     return 0;
 }

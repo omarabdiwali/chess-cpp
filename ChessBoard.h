@@ -19,18 +19,18 @@ public:
     ~ChessBoard();
 
     void getPositionsFromFen(std::string& fen);
-    
+
     std::vector<int> generateMoves(int pos);
 
     std::tuple<int, int, int, int> makeMoveObj(int from, int to);
-    void makeMove(std::tuple<int, int, int, int> move, bool simulated=false);
-    
+    void makeMove(std::tuple<int, int, int, int> move, bool simulated = false);
+
     // void printPositions();
     void printBoard();
     void printTurn();
     void printBoard(int from, int to);
     std::tuple<bool, std::vector<int>> printPossibleMovesBoard(int pos);
-    
+
     bool checkValidMove(char color, int pos);
     int getPiece(int pos);
     int getPosFromPiece(int piece);
@@ -44,7 +44,7 @@ public:
 
     std::map<int, int> getLastPositions();
     int getPromotion(std::tuple<int, int, int, int> move);
-    
+
     std::vector<int> knightMovement(int pos);
     std::vector<int> pawnMovement(int pos);
     std::vector<int> kingMovement(int pos);
@@ -58,6 +58,6 @@ private:
     char currentTurn;
     int whiteKingPos;
     int blackKingPos;
-    std::tuple<bool, bool> whiteCastle = std::make_tuple(true, true);
-    std::tuple<bool, bool> blackCastle = std::make_tuple(true, true);
+    std::tuple<bool, bool> whiteCastle;
+    std::tuple<bool, bool> blackCastle;
 };
