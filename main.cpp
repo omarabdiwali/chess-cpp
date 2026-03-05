@@ -37,7 +37,7 @@ int getNumberFromUser() {
 }
 
 int main() {
-    string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk";
+    string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk -";
     ChessBoard board(fen);
     board.printBoard();
     bool gameEnd = false;
@@ -71,10 +71,9 @@ int main() {
             if (nextMove == -1) { gameEnd = true; break; };
             if (find(moves.begin(), moves.end(), nextMove) != moves.end()) {
                 cout << endl;
-                tuple<int, int, int, int> moveObj = board.makeMoveObj(posToMove, nextMove);
+                Move moveObj = board.makeMoveObj(posToMove, nextMove);
                 board.makeMove(moveObj);
                 board.printBoard(posToMove, nextMove);
-                cout << endl;
                 gameEnd = board.isCheckmate();
                 break;
             }

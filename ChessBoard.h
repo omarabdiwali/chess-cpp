@@ -5,6 +5,8 @@
 #include <string>
 #include <memory>
 
+using Move = std::tuple<int, int, int, int>;
+
 enum Piece {
     EMPTY = 0,
     W_PAWN = 1, W_KNIGHT = 2, W_BISHOP = 3, W_ROOK = 4, W_QUEEN = 5, W_KING = 6,
@@ -13,17 +15,17 @@ enum Piece {
 
 class ChessBoard {
 public:
-    ChessBoard();
-    ChessBoard(std::vector<int> pos);
     ChessBoard(std::string fen);
     ~ChessBoard();
 
     void getPositionsFromFen(std::string& fen);
+    std::string getFenFromPositions();
+    int getPromotion(Move move);
 
     std::vector<int> generateMoves(int pos);
 
-    std::tuple<int, int, int, int> makeMoveObj(int from, int to);
-    void makeMove(std::tuple<int, int, int, int> move, bool simulated = false);
+    Move makeMoveObj(int from, int to);
+    void makeMove(Move move, bool simulated = false);
 
     void printBoard();
     void printTurn();
@@ -36,12 +38,10 @@ public:
     bool isInCheck(char color);
     bool isCheckmate();
     bool checkPawn(int targetPos, int kingPos, int enemyColorBit);
-    bool checkValidMove(std::tuple<int, int, int, int> move);
-    void checkEnPassant(std::tuple<int, int, int, int> move);
-    void checkCastling(std::tuple<int, int, int, int> move);
-    bool checkPromotion(std::tuple<int, int, int, int> move);
-
-    int getPromotion(std::tuple<int, int, int, int> move);
+    bool checkValidMove(Move move);
+    void checkEnPassant(Move move);
+    void checkCastling(Move move);
+    bool checkPromotion(Move move);
 
     std::vector<int> knightMovement(int pos);
     std::vector<int> pawnMovement(int pos);

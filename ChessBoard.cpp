@@ -12,10 +12,18 @@
 
 using namespace std;
 
-ChessBoard::ChessBoard() : positions({}), blackKingPos(-1), whiteKingPos(-1), currentTurn('w') { }
-ChessBoard::ChessBoard(vector<int> a) : positions(a), blackKingPos(getPosFromPiece(B_KING)), whiteKingPos(getPosFromPiece(W_KING)), currentTurn('w') { }
 ChessBoard::ChessBoard(string fen) : currentTurn('w') { getPositionsFromFen(fen); }
 ChessBoard::~ChessBoard() { }
+
+int getTargetedPieceType(string piece, char color) {
+    if (piece == "pawn" || piece == "p") return color == 'w' ? W_PAWN : B_PAWN;
+    if (piece == "rook" || piece == "r") return color == 'w' ? W_ROOK : B_ROOK;
+    if (piece == "bishop" || piece == "b") return color == 'w' ? W_BISHOP : B_BISHOP;
+    if (piece == "knight" || piece == "n") return color == 'w' ? W_KNIGHT : B_KNIGHT;
+    if (piece == "queen" || piece == "q") return color == 'w' ? W_QUEEN : B_QUEEN;
+    if (piece == "king" || piece == "k") return color == 'w' ? W_KING : B_KING;
+    return EMPTY;
+}
 
 int getUserPromotion(char color, string details) {
     vector<string> possibilites = { "rook", "bishop", "knight", "queen", "r", "b", "n", "q" };
@@ -33,21 +41,8 @@ int getUserPromotion(char color, string details) {
             continue;
         }
 
-        if (input == "rook" || input == "r") { return color == 'w' ? W_ROOK : B_ROOK; }
-        if (input == "bishop" || input == "b") { return color == 'w' ? W_BISHOP : B_BISHOP; }
-        if (input == "knight" || input == "n") { return color == 'w' ? W_KNIGHT : B_KNIGHT; }
-        if (input == "queen" || input == "q") { return color == 'w' ? W_QUEEN : B_QUEEN; }
+        return getTargetedPieceType(input, color);
     }
-}
-
-int getTargetedPieceType(string piece, char color) {
-    if (piece == "pawn") return color == 'w' ? W_PAWN : B_PAWN;
-    if (piece == "rook") return color == 'w' ? W_ROOK : B_ROOK;
-    if (piece == "bishop") return color == 'w' ? W_BISHOP : B_BISHOP;
-    if (piece == "knight") return color == 'w' ? W_KNIGHT : B_KNIGHT;
-    if (piece == "queen") return color == 'w' ? W_QUEEN : B_QUEEN;
-    if (piece == "king") return color == 'w' ? W_KING : B_KING;
-    return EMPTY;
 }
 
 int ChessBoard::getPosFromPiece(int targetPiece) {
@@ -177,7 +172,9 @@ void printAxis(int width) {
 
 void ChessBoard::getPositionsFromFen(string& fen) {
     int spacePassed = 0;
+    int enPassantPos = -1;
     positions = {};
+    enPassantCtx.clear();
 
     for (int i = 0; i < fen.length(); i++) {
         int piece = EMPTY;
@@ -200,6 +197,19 @@ void ChessBoard::getPositionsFromFen(string& fen) {
                     bool leftCastle = get<0>(whiteCastle); bool rightCastle = get<1>(whiteCastle);
                     if (letter == 'Q') { whiteCastle = make_tuple(true, rightCastle); }
                     else if (letter == 'K') { whiteCastle = make_tuple(leftCastle, true); }
+                }
+            }
+            else if (spacePassed == 3) {
+                if (letter == '-') {
+                    enPassantPos = -1;
+                }
+                else if (islower(static_cast<unsigned char>(letter))) {
+                    if (enPassantPos == -1) enPassantPos = 0;
+                    enPassantPos += (letter - 'a');
+                }
+                else if (isdigit(static_cast<unsigned char>(letter))) {
+                    if (enPassantPos == -1) enPassantPos = 0;
+                    enPassantPos += (64 - ((letter - '0') * 8));
                 }
             }
         }
@@ -230,6 +240,91 @@ void ChessBoard::getPositionsFromFen(string& fen) {
             positions.push_back(piece);
         }
     }
+
+    if (enPassantPos != -1) {
+        enPassantCtx.clear();
+        enPassantPos += (currentTurn == 'w' ? 8 : -8);
+        enPassantCtx[enPassantPos] = (currentTurn == 'w' ? enPassantPos - 16 : enPassantPos + 16);
+    }
+}
+
+string ChessBoard::getFenFromPositions() {
+    string fen = "";
+    int skips = 0;
+
+    for (int pos = 0; pos < 64; pos++) {
+        int piece = getPiece(pos);
+
+        if (pos % 8 == 0 && pos != 0) {
+            if (skips > 0) {
+                fen += to_string(skips);
+                skips = 0;
+            }
+            fen += "/";
+        }
+
+        if (piece == EMPTY) {
+            skips += 1;
+        }
+        else {
+            if (piece == -1) continue;
+            if (skips > 0) {
+                fen += to_string(skips);
+                skips = 0;
+            }
+
+            if (piece < 8) {
+                if (piece == W_PAWN) fen += "P";
+                else if (piece == W_ROOK) fen += "R";
+                else if (piece == W_BISHOP) fen += "B";
+                else if (piece == W_KNIGHT) fen += "N";
+                else if (piece == W_QUEEN) fen += "Q";
+                else if (piece == W_KING) fen += "K";
+            }
+            else {
+                if (piece == B_PAWN) fen += "p";
+                else if (piece == B_ROOK) fen += "r";
+                else if (piece == B_BISHOP) fen += "b";
+                else if (piece == B_KNIGHT) fen += "n";
+                else if (piece == B_QUEEN) fen += "q";
+                else if (piece == B_KING) fen += "k";
+            }
+        }
+    }
+
+    if (skips > 0) {
+        fen += to_string(skips);
+    }
+
+    string turnMessage = createMessage(" {} ", currentTurn);
+    fen += turnMessage;
+
+    if (get<0>(whiteCastle) || get<1>(whiteCastle) || get<0>(blackCastle) || get<1>(blackCastle)) {
+        if (get<0>(whiteCastle)) fen += "Q";
+        if (get<1>(whiteCastle)) fen += "K";
+        if (get<0>(blackCastle)) fen += "q";
+        if (get<1>(blackCastle)) fen += "k";
+    }
+    else {
+        fen += "-";
+    }
+
+    if (enPassantCtx.size() > 0) {
+        fen += " ";
+        int currentPos = enPassantCtx.begin()->first;
+        int rank = 8 - floor(currentPos / 8);
+        int file = currentPos - (floor(currentPos / 8) * 8);
+        
+        char fileLetter = static_cast<char>('a' + file);
+        rank += (currentTurn == 'w' ? 1 : -1);
+        string enPassantMsg = createMessage("{}{}", fileLetter, rank);
+        fen += enPassantMsg;
+    }
+    else {
+        fen += " -";
+    }
+
+    return fen;
 }
 
 int ChessBoard::getPiece(int pos) {
@@ -255,7 +350,7 @@ vector<int> ChessBoard::generateMoves(int pos) {
         for (auto& to : totalMoves) {
             int toPiece = getPiece(to);
             if (toPiece != -1) {
-                tuple<int, int, int, int> move = make_tuple(piece, toPiece, pos, to);
+                Move move = make_tuple(piece, toPiece, pos, to);
                 if (checkValidMove(move)) validMoves.push_back(to);
             }
         }
@@ -337,7 +432,7 @@ vector<int> ChessBoard::kingMovement(int pos) {
             int skipOver = pos - i;
             int skipPiece = getPiece(skipOver);
             if (skipPiece != EMPTY) { canCastle = false; break; }
-            tuple<int, int, int, int> move = makeMoveObj(pos, skipOver);
+            Move move = makeMoveObj(pos, skipOver);
             if (!checkValidMove(move)) { canCastle = false; break; }
         }
 
@@ -350,7 +445,7 @@ vector<int> ChessBoard::kingMovement(int pos) {
             int skipOver = pos + i;
             int skipPiece = getPiece(skipOver);
             if (skipPiece != EMPTY) { canCastle = false; break; }
-            tuple<int, int, int, int> move = makeMoveObj(pos, skipOver);
+            Move move = makeMoveObj(pos, skipOver);
             if (!checkValidMove(move)) { canCastle = false; break; }
         }
 
@@ -427,7 +522,7 @@ bool ChessBoard::checkValidMove(char color, int pos) {
     return piece != -1 && (isEmpty(piece) || !verifySameColor(piece, color));
 }
 
-bool ChessBoard::checkValidMove(tuple<int, int, int, int> move) {
+bool ChessBoard::checkValidMove(Move move) {
     int fromPiece = get<0>(move);
     char pieceColor = getPieceColor(fromPiece);
 
@@ -590,13 +685,13 @@ void ChessBoard::printTurn() {
     cout << (currentTurn == 'w' ? "White Turn" : "Black Turn") << " - Position to Move, or -1 to end match: ";
 }
 
-tuple<int, int, int, int> ChessBoard::makeMoveObj(int from, int to) {
+Move ChessBoard::makeMoveObj(int from, int to) {
     int fromPiece = getPiece(from);
     int toPiece = getPiece(to);
     return make_tuple(fromPiece, toPiece, from, to);
 }
 
-void ChessBoard::makeMove(tuple<int, int, int, int> move, bool simulated) {
+void ChessBoard::makeMove(Move move, bool simulated) {
     int fromPiece = get<0>(move); int toPiece = get<1>(move);
     int from = get<2>(move); int to = get<3>(move);
     char nextMove = currentTurn == 'w' ? 'b' : 'w';
@@ -636,7 +731,7 @@ bool ChessBoard::isCheckmate() {
     return true;
 }
 
-bool ChessBoard::checkPromotion(tuple<int, int, int, int> move) {
+bool ChessBoard::checkPromotion(Move move) {
     int fromPiece = get<0>(move); int toPiece = get<1>(move);
     int from = get<2>(move); int to = get<3>(move);
     int toRank = floor(to / 8);
@@ -649,7 +744,7 @@ bool ChessBoard::checkPromotion(tuple<int, int, int, int> move) {
     return false;
 }
 
-int ChessBoard::getPromotion(tuple<int, int, int, int> move) {
+int ChessBoard::getPromotion(Move move) {
     int fromPiece = get<0>(move); int toPiece = get<1>(move);
     int from = get<2>(move); int to = get<3>(move);
     int toRank = floor(to / 8);
@@ -668,7 +763,7 @@ int ChessBoard::getPromotion(tuple<int, int, int, int> move) {
     return fromPiece;
 }
 
-void ChessBoard::checkCastling(tuple<int, int, int, int> move) {
+void ChessBoard::checkCastling(Move move) {
     int fromPiece = get<0>(move); int toPiece = get<1>(move);
     int from = get<2>(move); int to = get<3>(move);
     int diff = abs(from - to);
@@ -724,7 +819,7 @@ void ChessBoard::checkCastling(tuple<int, int, int, int> move) {
     }
 }
 
-void ChessBoard::checkEnPassant(tuple<int, int, int, int> move) {
+void ChessBoard::checkEnPassant(Move move) {
     int fromPiece = get<0>(move); int toPiece = get<1>(move);
     int from = get<2>(move); int to = get<3>(move);
 
