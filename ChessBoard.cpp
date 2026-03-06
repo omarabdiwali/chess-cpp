@@ -154,13 +154,14 @@ void printRow(char ch, int width, bool noDividers = false, bool endWithDivider =
     cout << endl;
 }
 
-void printAxis(int width) {
+void printFiles(int width) {
     cout << "   ";
+    const char files[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
     int count = 0;
     int countPos = 2;
     for (int i = 0; i < width; i++) {
         if (i == countPos) {
-            cout << count;
+            cout << files[count];
             count += 1;
             countPos += 5;
         }
@@ -173,8 +174,13 @@ void printAxis(int width) {
 void ChessBoard::getPositionsFromFen(string& fen) {
     int spacePassed = 0;
     int enPassantPos = -1;
-    positions = {};
+    string halfMove = "";
+    string fullMove = "";
+    
+    positions.clear();
     enPassantCtx.clear();
+    whiteCastle = make_tuple(false, false);
+    blackCastle = make_tuple(false, false);
 
     for (int i = 0; i < fen.length(); i++) {
         int piece = EMPTY;
@@ -212,6 +218,12 @@ void ChessBoard::getPositionsFromFen(string& fen) {
                     enPassantPos += (64 - ((letter - '0') * 8));
                 }
             }
+            else if (spacePassed == 4) {
+                halfMove += letter;
+            }
+            else if (spacePassed == 5) {
+                fullMove += letter;
+            }
         }
         else if (isdigit(static_cast<unsigned char>(letter))) {
             int numValue = letter - '0';
@@ -245,6 +257,15 @@ void ChessBoard::getPositionsFromFen(string& fen) {
         enPassantCtx.clear();
         enPassantPos += (currentTurn == 'w' ? 8 : -8);
         enPassantCtx[enPassantPos] = (currentTurn == 'w' ? enPassantPos - 16 : enPassantPos + 16);
+    }
+
+    try {
+        halfMoveClock = stoi(halfMove);
+        fullMoveNumber = stoi(fullMove);
+    }
+    catch (...) {
+        halfMoveClock = 0;
+        fullMoveNumber = 1;
     }
 }
 
@@ -312,18 +333,13 @@ string ChessBoard::getFenFromPositions() {
     if (enPassantCtx.size() > 0) {
         fen += " ";
         int currentPos = enPassantCtx.begin()->first;
-        int rank = 8 - floor(currentPos / 8);
-        int file = currentPos - (floor(currentPos / 8) * 8);
-        
-        char fileLetter = static_cast<char>('a' + file);
-        rank += (currentTurn == 'w' ? 1 : -1);
-        string enPassantMsg = createMessage("{}{}", fileLetter, rank);
-        fen += enPassantMsg;
+        fen += translateToSquareNames(currentPos, true);
     }
     else {
         fen += " -";
     }
 
+    fen += createMessage(" {} {}", halfMoveClock, fullMoveNumber);
     return fen;
 }
 
@@ -525,25 +541,11 @@ bool ChessBoard::checkValidMove(char color, int pos) {
 bool ChessBoard::checkValidMove(Move move) {
     int fromPiece = get<0>(move);
     char pieceColor = getPieceColor(fromPiece);
-
-    vector<int> positionsCopy = positions;
-    map<int, int> enPassantCtxCopy = enPassantCtx;
-    tuple<bool, bool> whiteCastleCopy = whiteCastle;
-    tuple<bool, bool> blackCastleCopy = blackCastle;
-    int whiteKingPosCopy = whiteKingPos;
-    int blackKingPosCopy = blackKingPos;
+    string currentFen = getFenFromPositions();
 
     makeMove(move, true);
     bool isInvalid = isInCheck(pieceColor);
-
-    positions = positionsCopy;
-    enPassantCtx = enPassantCtxCopy;
-    whiteCastle = whiteCastleCopy;
-    blackCastle = blackCastleCopy;
-    whiteKingPos = whiteKingPosCopy;
-    blackKingPos = blackKingPosCopy;
-    currentTurn = currentTurn == 'w' ? 'b' : 'w';
-
+    getPositionsFromFen(currentFen);
     return !isInvalid;
 }
 
@@ -552,7 +554,7 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
     vector<int> moves;
 
     if (fromPiece == -1 || fromPiece == EMPTY) {
-        string reason = fromPiece == -1 ? "Invalid board position (0 <= pos <= 63)." : "Selected position is empty.";
+        string reason = fromPiece == -1 ? "Invalid board position (a1 <= pos <= h8) or (0 <= pos <= 63)." : "Selected position is empty.";
         cout << reason << endl;
         return make_tuple(false, moves);
     }
@@ -575,19 +577,18 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
     int spacesWidth = 8 * 4 + 1;
     cout << endl;
 
-    printAxis(dashesWidth);
+    printFiles(dashesWidth);
     printRow('-', dashesWidth, true);
 
-    int count = 0;
+    int count = 8;
     for (int i = 0; i < 64; i++) {
         int piece = getPiece(i);
         string translated = translatePiece(piece);
         bool contains = find(moves.begin(), moves.end(), i) != moves.end();
 
         if (i % 8 == 0) {
-            if (count > 10) cout << count << " ";
-            else cout << " " << count << " ";
-            count += 8;
+            cout << " " << count << " ";
+            count -= 1;
         }
         cout << "|";
         if (i == pos || contains) {
@@ -595,7 +596,7 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
             SetConsoleTextAttribute(hConsole, contains ? BACKGROUND_BLUE : BACKGROUND_GREEN);
         }
 
-        string pieceString = contains ? i < 10 ? createMessage(" {}", i) : createMessage("{}", i) : translated;
+        string pieceString = contains ? translateToSquareNames(i) : translated;
         cout << " " << pieceString << " ";
 
         if (i % 8 == 7) {
@@ -620,18 +621,17 @@ tuple<bool, vector<int>> ChessBoard::printPossibleMovesBoard(int pos) {
 void ChessBoard::printBoard(int from, int to) {
     int dashesWidth = 8 * 5 + 1;
     int spacesWidth = 8 * 4 + 1;
-    printAxis(dashesWidth);
+    printFiles(dashesWidth);
     printRow('-', dashesWidth, true);
 
-    int count = 0;
+    int count = 8;
     for (int i = 0; i < 64; i++) {
         int piece = getPiece(i);
         string translated = translatePiece(piece);
 
         if (i % 8 == 0) {
-            if (count > 10) cout << count << " ";
-            else cout << " " << count << " ";
-            count += 8;
+            cout << " " << count << " ";
+            count -= 1;
         }
         cout << "|";
         if (i == from || i == to) {
@@ -660,18 +660,17 @@ void ChessBoard::printBoard(int from, int to) {
 void ChessBoard::printBoard() {
     int dashesWidth = 8 * 5 + 1;
     int spacesWidth = 8 * 4 + 1;
-    printAxis(dashesWidth);
+    printFiles(dashesWidth);
     printRow('-', dashesWidth, true);
 
-    int count = 0;
+    int count = 8;
     for (int i = 0; i < 64; i++) {
         int piece = getPiece(i);
         string translated = translatePiece(piece);
 
         if (i % 8 == 0) {
-            if (count > 10) cout << count << " ";
-            else cout << " " << count << " ";
-            count += 8;
+            cout << " " << count << " ";
+            count -= 1;
         }
         cout << "| " << translated << " ";
         if (i % 8 == 7) {
@@ -682,7 +681,7 @@ void ChessBoard::printBoard() {
 }
 
 void ChessBoard::printTurn() {
-    cout << (currentTurn == 'w' ? "White Turn" : "Black Turn") << " - Position to Move, or -1 to end match: ";
+    cout << (currentTurn == 'w' ? "White Turn" : "Black Turn") << " - Position to Move (ex. a2), or -1 to end match: ";
 }
 
 Move ChessBoard::makeMoveObj(int from, int to) {
@@ -696,6 +695,17 @@ void ChessBoard::makeMove(Move move, bool simulated) {
     int from = get<2>(move); int to = get<3>(move);
     char nextMove = currentTurn == 'w' ? 'b' : 'w';
     if (fromPiece == -1) return;
+
+    if (!simulated) {
+        if (fromPiece == W_PAWN || fromPiece == B_PAWN || toPiece != EMPTY) {
+            halfMoveClock = 0;
+        }
+        else { halfMoveClock += 1; }
+
+        if (getPieceColor(fromPiece) == 'b') {
+            fullMoveNumber += 1;
+        }
+    }
 
     enPassantCtx.clear();
     fromPiece = checkPromotion(move) ? simulated ? (currentTurn == 'w' ? W_QUEEN : B_QUEEN) : getPromotion(move) : fromPiece;
@@ -891,4 +901,33 @@ bool ChessBoard::checkPawn(int targetPos, int kingPos, int enemyColorBit) {
     return (piece != EMPTY && piece != -1 &&
         (piece & 8) == enemyColorBit &&
         (piece & 7) == W_PAWN);
+}
+
+string ChessBoard::translateToSquareNames(int pos, bool isEnPassant) {
+    int rank = 8 - floor(pos / 8);
+    if (isEnPassant) {
+        char pieceColor = getPieceColor(getPiece(pos));
+        rank += (pieceColor == 'w' ? -1 : 1);
+    }
+    int file = abs(pos - floor(pos / 8) * 8);
+    char strFile = static_cast<char>(file + 'a');
+    string squareName = createMessage("{}{}", strFile, rank);
+    return squareName;
+}
+
+int ChessBoard::translateToPos(string squareNames) {
+    set<char> validFiles = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
+    set<int> validRanks = { '1', '2', '3', '4', '5', '6', '7', '8'};
+
+    if (squareNames == "-1") return -1;
+    if (squareNames.size() != 2) return -3;
+
+    char file = squareNames.at(0);
+    char rank = squareNames.at(1);
+    if (validFiles.find(file) == validFiles.end()) return -3;
+    if (validRanks.find(rank) == validRanks.end()) return -3;
+
+    int fileNum = file - 'a';
+    int rankNum = '8' - rank;
+    return rankNum * 8 + fileNum;
 }

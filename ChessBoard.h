@@ -23,6 +23,8 @@ public:
     int getPromotion(Move move);
 
     std::vector<int> generateMoves(int pos);
+    std::string translateToSquareNames(int pos, bool isEnPassant = false);
+    static int translateToPos(std::string squareNames);
 
     Move makeMoveObj(int from, int to);
     void makeMove(Move move, bool simulated = false);
@@ -51,9 +53,11 @@ public:
 private:
     std::vector<int> positions;
     std::map<int, int> enPassantCtx;
+    std::tuple<bool, bool> whiteCastle;
+    std::tuple<bool, bool> blackCastle;
     char currentTurn;
     int whiteKingPos;
     int blackKingPos;
-    std::tuple<bool, bool> whiteCastle;
-    std::tuple<bool, bool> blackCastle;
+    int halfMoveClock = 0;
+    int fullMoveNumber = 1;
 };

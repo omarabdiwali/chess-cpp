@@ -21,23 +21,13 @@ void printVector(vector<T> vec) {
 
 int getNumberFromUser() {
     string input;
-    int number;
-    bool isValid = false;
     getline(cin, input);
-
-    try {
-        number = stoi(input);
-        isValid = true;
-    }
-    catch (const exception& e) {
-        isValid = false;
-    }
-
-    return isValid ? number : -3;
+    int number = ChessBoard::translateToPos(input);
+    return number;
 }
 
 int main() {
-    string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk -";
+    string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     ChessBoard board(fen);
     board.printBoard();
     bool gameEnd = false;
@@ -50,7 +40,7 @@ int main() {
         if (posToMove == -1) break;
 
         if (posToMove == -3) {
-            cout << "Invalid board position (0 <= pos <= 63)." << endl;
+            cout << "Invalid board position (a1 <= pos <= h8)." << endl;
             continue;
         }
 
@@ -60,11 +50,11 @@ int main() {
 
         while (validPos && true) {
             int nextMove;
-            cout << "Select destination, or select a different piece: ";
+            cout << "Select destination, or select a different piece (ex. a4): ";
             nextMove = getNumberFromUser();
 
             if (nextMove == -3) {
-                cout << "Invalid board position (0 <= pos <= 63)." << endl;
+                cout << "Invalid board position (a1 <= pos <= h8)." << endl;
                 continue;
             }
             
