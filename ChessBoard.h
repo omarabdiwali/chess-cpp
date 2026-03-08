@@ -19,8 +19,11 @@ public:
     ~ChessBoard();
 
     void getPositionsFromFen(std::string& fen);
-    std::string getFenFromPositions();
+    std::string getFen();
     int getPromotion(Move move);
+    int getPiece(int pos);
+    int getPosFromPiece(int piece);
+    char getCurrentTurn();
 
     std::vector<int> generateMoves(int pos);
     std::string translateToSquareNames(int pos, bool isEnPassant = false);
@@ -29,16 +32,14 @@ public:
     Move makeMoveObj(int from, int to);
     void makeMove(Move move, bool simulated = false);
 
-    void printBoard();
     void printTurn();
     void printBoard(int from, int to);
     std::tuple<bool, std::vector<int>> printPossibleMovesBoard(int pos);
 
     bool checkValidMove(char color, int pos);
-    int getPiece(int pos);
-    int getPosFromPiece(int piece);
     bool isInCheck(char color);
     bool isCheckmate();
+    bool isStalemate();
     bool checkPawn(int targetPos, int kingPos, int enemyColorBit);
     bool checkValidMove(Move move);
     void checkEnPassant(Move move);

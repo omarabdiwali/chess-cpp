@@ -254,7 +254,6 @@ void ChessBoard::getPositionsFromFen(string& fen) {
     }
 
     if (enPassantPos != -1) {
-        enPassantCtx.clear();
         enPassantPos += (currentTurn == 'w' ? 8 : -8);
         enPassantCtx[enPassantPos] = (currentTurn == 'w' ? enPassantPos - 16 : enPassantPos + 16);
     }
@@ -269,7 +268,7 @@ void ChessBoard::getPositionsFromFen(string& fen) {
     }
 }
 
-string ChessBoard::getFenFromPositions() {
+string ChessBoard::getFen() {
     string fen = "";
     int skips = 0;
 
@@ -541,7 +540,7 @@ bool ChessBoard::checkValidMove(char color, int pos) {
 bool ChessBoard::checkValidMove(Move move) {
     int fromPiece = get<0>(move);
     char pieceColor = getPieceColor(fromPiece);
-    string currentFen = getFenFromPositions();
+    string currentFen = getFen();
 
     makeMove(move, true);
     bool isInvalid = isInCheck(pieceColor);
@@ -657,29 +656,6 @@ void ChessBoard::printBoard(int from, int to) {
     }
 }
 
-void ChessBoard::printBoard() {
-    int dashesWidth = 8 * 5 + 1;
-    int spacesWidth = 8 * 4 + 1;
-    printFiles(dashesWidth);
-    printRow('-', dashesWidth, true);
-
-    int count = 8;
-    for (int i = 0; i < 64; i++) {
-        int piece = getPiece(i);
-        string translated = translatePiece(piece);
-
-        if (i % 8 == 0) {
-            cout << " " << count << " ";
-            count -= 1;
-        }
-        cout << "| " << translated << " ";
-        if (i % 8 == 7) {
-            cout << "|" << endl;
-            printRow('-', dashesWidth - 9, false, true);
-        }
-    }
-}
-
 void ChessBoard::printTurn() {
     cout << (currentTurn == 'w' ? "White Turn" : "Black Turn") << " - Position to Move (ex. a2), or -1 to end match: ";
 }
@@ -729,6 +705,26 @@ void ChessBoard::makeMove(Move move, bool simulated) {
 }
 
 bool ChessBoard::isCheckmate() {
+    if (isInCheck(currentTurn)) {
+        for (int pos = 0; pos < 64; pos++) {
+            int piece = getPiece(pos);
+            if (piece == -1 || getPieceColor(piece) != currentTurn) continue;
+
+            vector<int> moves = generateMoves(pos);
+            if (moves.size() > 0) return false;
+        }
+        
+        return true;
+    }
+
+    return false;
+}
+
+bool ChessBoard::isStalemate() {
+    if (halfMoveClock >= 50) {
+        return true;
+    }
+
     for (int pos = 0; pos < 64; pos++) {
         int piece = getPiece(pos);
         if (piece == -1 || getPieceColor(piece) != currentTurn) continue;
@@ -737,8 +733,11 @@ bool ChessBoard::isCheckmate() {
         if (moves.size() > 0) return false;
     }
 
-    cout << (currentTurn == 'w' ? "Black Wins!" : "White Wins!") << endl;
     return true;
+}
+
+char ChessBoard::getCurrentTurn() {
+    return currentTurn;
 }
 
 bool ChessBoard::checkPromotion(Move move) {
@@ -787,7 +786,6 @@ void ChessBoard::checkCastling(Move move) {
 
     if (fromPiece == W_KING || fromPiece == B_KING) {
         color == 'w' ? whiteCastle = make_tuple(false, false) : blackCastle = make_tuple(false, false);
-        if (from != 60 && from != 4) return;
 
         if (diff == 2) {
             int dir = from - to;
@@ -917,7 +915,7 @@ string ChessBoard::translateToSquareNames(int pos, bool isEnPassant) {
 
 int ChessBoard::translateToPos(string squareNames) {
     set<char> validFiles = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
-    set<int> validRanks = { '1', '2', '3', '4', '5', '6', '7', '8'};
+    set<int> validRanks = { '1', '2', '3', '4', '5', '6', '7', '8' };
 
     if (squareNames == "-1") return -1;
     if (squareNames.size() != 2) return -3;

@@ -5,20 +5,6 @@
 
 using namespace std;
 
-template <typename T>
-void printVector(vector<T> vec) {
-    cout << "[";
-    for (const auto& item : vec) {
-        if (item == vec.at(0)) {
-            cout << item;
-        }
-        else {
-            cout << ", " << item;
-        }
-    }
-    cout << "]";
-}
-
 int getNumberFromUser() {
     string input;
     getline(cin, input);
@@ -29,7 +15,7 @@ int getNumberFromUser() {
 int main() {
     string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     ChessBoard board(fen);
-    board.printBoard();
+    board.printBoard(-1, -1);
     bool gameEnd = false;
 
     while (!gameEnd) {
@@ -64,7 +50,14 @@ int main() {
                 Move moveObj = board.makeMoveObj(posToMove, nextMove);
                 board.makeMove(moveObj);
                 board.printBoard(posToMove, nextMove);
-                gameEnd = board.isCheckmate();
+                if (board.isCheckmate()) {
+                    cout << (board.getCurrentTurn() == 'w' ? "Black Wins!" : "White Wins!") << endl;
+                    gameEnd = true;
+                }
+                else if (board.isStalemate()) {
+                    cout << "It's a draw!" << endl;
+                    gameEnd = true;
+                }
                 break;
             }
 
